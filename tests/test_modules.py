@@ -569,3 +569,37 @@ def test_search_accepts_bare_dates(make_client):
     assert search_videos(
         client, "query", published_after="2024-01-01", published_before="2024-02-01"
     ) == ["v1"]
+
+
+def test_channel_playlists_rows(make_client):
+    channel_id = "UCtxGqPJPPi8ptAzB029jpYA"
+
+    def handler(endpoint, params):
+        assert endpoint == "playlists"
+        assert params["channelId"] == channel_id
+        if params.get("pageToken"):
+            return {"items": [{
+                "id": "PL2",
+                "snippet": {"title": "Second", "publishedAt": "2022-01-01T00:00:00Z"},
+                "contentDetails": {"itemCount": 2},
+            }]}
+        return {
+            "items": [{
+                "id": "PL1",
+                "snippet": {
+                    "title": "First",
+                    "publishedAt": "2021-01-01T00:00:00Z",
+                    "description": "line1\nline2",
+                },
+                "contentDetails": {"itemCount": 4},
+            }],
+            "nextPageToken": "page2",
+        }
+
+    from ytdt.modules import channel_playlists
+
+    rows = channel_playlists(make_client(handler), channel_id)
+    assert [r["playlistId"] for r in rows] == ["PL1", "PL2"]
+    assert rows[0]["playlistUrl"] == "https://www.youtube.com/playlist?list=PL1"
+    assert rows[0]["itemCount"] == 4
+    assert rows[0]["description"] == "line1 line2"  # newlines squashed for CSV

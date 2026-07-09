@@ -265,11 +265,15 @@ def info_channel_info() -> None:
         """
 Retrieves the full record for a single channel, specified by channel id, channel URL, or
 @handle, via the
-[channels/list](https://developers.google.com/youtube/v3/docs/channels/list) API endpoint.
+[channels/list](https://developers.google.com/youtube/v3/docs/channels/list) API endpoint,
+and the channel's public playlists via the
+[playlists/list](https://developers.google.com/youtube/v3/docs/playlists/list) API endpoint.
 
-The module creates one **output**:
+The module creates two **outputs**:
 
-- the full channel record, displayed directly on this page.
+- the full channel record, as part of the generated report;
+- a CSV file listing the channel's public playlists (playlist id and URL, title, video
+  count), if the channel has any.
 """
     ).classes("ytdt-info")
 

@@ -63,28 +63,49 @@ def test_job_surfaces_errors(tmp_path, make_client):
 
 
 def test_channel_info_job_returns_display_data(tmp_path, make_client):
+    channel_id = "UCabcdefghijklmnopqrstuv"
+
     def info_handler(endpoint, params):
-        assert endpoint == "channels"
-        return {
-            "items": [{
-                "id": "UCabc",
-                "snippet": {"title": "Test Channel", "publishedAt": "2020-01-01T00:00:00Z"},
-                "statistics": {"subscriberCount": "12345", "viewCount": "1", "videoCount": "2"},
-                "contentDetails": {"relatedPlaylists": {"uploads": "UUabc"}},
-            }]
-        }
+        if endpoint == "channels":
+            return {
+                "items": [{
+                    "id": channel_id,
+                    "snippet": {"title": "Test Channel", "publishedAt": "2020-01-01T00:00:00Z"},
+                    "statistics": {"subscriberCount": "12345", "viewCount": "1", "videoCount": "2"},
+                    "contentDetails": {"relatedPlaylists": {"uploads": "UUabc"}},
+                }]
+            }
+        if endpoint == "playlists":
+            assert params["channelId"] == channel_id
+            return {
+                "items": [{
+                    "id": "PL1",
+                    "snippet": {
+                        "title": "Lectures",
+                        "publishedAt": "2021-01-01T00:00:00Z",
+                        "description": "a\nb",
+                    },
+                    "contentDetails": {"itemCount": 4},
+                }]
+            }
+        raise AssertionError(endpoint)
 
     def factory(**kwargs):
         return make_client(info_handler)
 
-    job = Job(module="channel-info", params={"channel": "UCabcdefghijklmnopqrstu"}, output_dir=tmp_path)
+    job = Job(module="channel-info", params={"channel": channel_id}, output_dir=tmp_path)
     job.start(client_factory=factory)
     job.wait(5)
     assert job.status == "done", job.error
-    assert job.files == []
-    assert job.summary == "Test Channel — 12,345 subscribers"
+    assert job.summary == "Test Channel — 12,345 subscribers, 1 public playlist"
     assert job.data["title"] == "Test Channel"
     assert job.data["uploadsPlaylist"] == "UUabc"
+    # the public playlists land in a CSV output
+    assert len(job.files) == 1
+    content = job.files[0].read_text(encoding="utf-8")
+    assert "PL1" in content
+    assert "https://www.youtube.com/playlist?list=PL1" in content
+    assert "Lectures" in content
 
 
 def test_job_report_covers_params_files_and_links(tmp_path, make_client):
@@ -109,7 +130,7 @@ def test_job_report_covers_params_files_and_links(tmp_path, make_client):
     assert "Result: 2 videos" in report
     # one line per file: the re-download link with content stats appended
     assert f"http://host/files/{job.files[0].name} (2 rows)" in report
-    assert "nodes" in report and "edges" in report
+    assert "2 nodes" in report and "1 edge" in report  # proper singular
     for path in job.files:
         assert f"http://host/files/{path.name} (" in report
     # without a URL builder the report falls back to plain file names

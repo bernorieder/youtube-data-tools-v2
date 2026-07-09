@@ -29,6 +29,7 @@ from .models import Channel, Comment, Video
 from .modules import (
     author_counts,
     channel_info,
+    channel_playlists,
     channel_details,
     channel_shorts_ids,
     channel_video_ids,
@@ -74,6 +75,7 @@ __all__ = [
     "YouTubeClient",
     "author_counts",
     "channel_info",
+    "channel_playlists",
     "channel_details",
     "channel_shorts_ids",
     "channel_video_ids",

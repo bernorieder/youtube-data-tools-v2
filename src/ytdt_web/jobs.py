@@ -32,12 +32,18 @@ def _stamp() -> str:
     return datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
 
 
+def n_of(count: int, singular: str, plural: str | None = None) -> str:
+    """Count phrase with a proper singular: "1 video", "2 videos"."""
+    noun = singular if count == 1 else (plural or singular + "s")
+    return f"{count:,} {noun}"
+
+
 def file_stats(path: Path) -> str:
     """One-line content description of an output file for the run report."""
     if path.suffix == ".csv":
         with path.open(encoding="utf-8", newline="") as fh:
             rows = max(0, sum(1 for _ in csv.reader(fh)) - 1)  # minus header
-        return f"{rows:,} rows"
+        return n_of(rows, "row")
     if path.suffix == ".gexf":
         nodes = edges = 0
         for _, element in ElementTree.iterparse(path):
@@ -47,8 +53,8 @@ def file_stats(path: Path) -> str:
             elif tag == "edge":
                 edges += 1
             element.clear()
-        return f"{nodes:,} nodes, {edges:,} edges"
-    return f"{path.stat().st_size:,} bytes"
+        return f"{n_of(nodes, 'node')}, {n_of(edges, 'edge')}"
+    return n_of(path.stat().st_size, "byte")
 
 
 def _shorts_options(client: YouTubeClient, p: dict, videos: list) -> list:
@@ -80,7 +86,13 @@ def _channel_info(client: YouTubeClient, p: dict, outdir: Path) -> tuple:
     summary = row.get("title", "")
     if row.get("subscriberCount") != "":
         summary += f" — {int(row['subscriberCount']):,} subscribers"
-    return [], summary, row
+    files = []
+    playlists = modules.channel_playlists(client, row["id"])
+    if playlists:
+        files.append(outdir / f"channelplaylists_{row['id']}_{_stamp()}.csv")
+        write_table(playlists, files[0], position=False)
+    summary += f", {n_of(len(playlists), 'public playlist')}"
+    return files, summary, row
 
 
 def _channel_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
@@ -92,7 +104,7 @@ def _channel_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Pa
     channels = modules.fetch_channels(client, unique(ids))
     path = outdir / f"channellist{len(channels)}_{_stamp()}.csv"
     write_table(channels, path)
-    return [path], f"{len(channels)} channels"
+    return [path], n_of(len(channels), "channel")
 
 
 def _channel_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
@@ -108,7 +120,7 @@ def _channel_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list
     desc = "_".join(parts)
     path = outdir / f"channelnet_{desc}_nodes{len(graph.nodes)}_{_stamp()}.gexf"
     graph.write_gexf(path)
-    return [path], f"{len(graph.nodes)} channels, {len(graph.edges)} links"
+    return [path], f"{n_of(len(graph.nodes), 'channel')}, {n_of(len(graph.edges), 'link')}"
 
 
 def _video_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
@@ -172,7 +184,7 @@ def _video_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path
             outdir / f"videolist_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gexf"
         )
         video_graph.write_gexf(files[-1])
-    return files, f"{len(videos)} videos"
+    return files, n_of(len(videos), "video")
 
 
 def _trending(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
@@ -222,7 +234,7 @@ def _trending(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path],
             outdir / f"trending_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gexf"
         )
         video_graph.write_gexf(files[-1])
-    return files, f"{len(rows)} chart entries, {len(videos)} distinct videos"
+    return files, f"{n_of(len(rows), 'chart entry', 'chart entries')}, {n_of(len(videos), 'distinct video')}"
 
 
 def _video_comments(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
@@ -246,7 +258,7 @@ def _video_comments(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[
     ]
     write_table(comments, files[0], position=False)
     graph.write_gexf(files[1])
-    return files, f"{len(comments)} comments, {len(graph.nodes)} users"
+    return files, f"{n_of(len(comments), 'comment')}, {n_of(len(graph.nodes), 'user')}"
 
 
 def _cocomment_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
@@ -269,7 +281,7 @@ def _cocomment_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[li
     ]
     video_graph.write_gexf(files[0])
     channel_graph.write_gexf(files[1])
-    return files, f"{len(video_graph.nodes)} videos, {len(channel_graph.nodes)} channels"
+    return files, f"{n_of(len(video_graph.nodes), 'video')}, {n_of(len(channel_graph.nodes), 'channel')}"
 
 
 def _search_kwargs(p: dict) -> dict:
@@ -428,7 +440,7 @@ class Job:
             lines.append(f"Error: {self.error}")
         else:
             lines.append(f"Result: {self.summary}")
-        lines.append(f"API usage: {self.calls:,} calls, ~{self.quota:,} quota units")
+        lines.append(f"API usage: {n_of(self.calls, 'call')}, ~{n_of(self.quota, 'quota unit')}")
         if self.data:
             lines += ["", "Data:"]
             lines += [f"   {key}: {value}" for key, value in self.data.items()]

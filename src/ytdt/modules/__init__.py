@@ -1,4 +1,4 @@
-from .channel_info import channel_info
+from .channel_info import channel_info, channel_playlists
 from .channel_list import fetch_channels, search_channels
 from .channel_network import crawl_channel_network
 from .cocomment_network import cocomment_networks
@@ -28,6 +28,7 @@ from .video_list import (
 __all__ = [
     "author_counts",
     "channel_info",
+    "channel_playlists",
     "channel_details",
     "channel_shorts_ids",
     "channel_video_ids",

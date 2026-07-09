@@ -120,7 +120,7 @@ own limits.
 
 | Original module | Library functions |
 | --- | --- |
-| Channel Info | `channel_info`, `resolve_channel_id` |
+| Channel Info | `channel_info`, `channel_playlists`, `resolve_channel_id` |
 | Channel List | `search_channels`, `fetch_channels` |
 | Channel Network | `crawl_channel_network` |
 | Video List | `search_videos`, `channel_video_ids`, `playlist_video_ids`, `fetch_videos`, `channel_details`, `detect_shorts`, `channel_shorts_ids`, `cotag_network`, `shared_tag_network` |

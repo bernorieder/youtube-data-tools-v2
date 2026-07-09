@@ -238,6 +238,10 @@ def run(args: argparse.Namespace) -> None:
     if args.command == "channel-info":
         info = modules.channel_info(client, args.channel)
         print(json.dumps(info, indent=2, ensure_ascii=False))
+        playlists = modules.channel_playlists(client, info["id"])
+        if playlists:
+            path = _outfile(args, f"channelplaylists_{info['id']}_{stamp}.csv")
+            _report(write_table(playlists, path, position=False))
 
     elif args.command == "channel-list":
         ids = resolve_channel_ids(client, _parse_ids(args))
