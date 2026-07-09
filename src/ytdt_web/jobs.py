@@ -18,6 +18,7 @@ import csv
 import os
 import threading
 from dataclasses import dataclass, field
+from xml.etree import ElementTree
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -37,20 +38,15 @@ def file_stats(path: Path) -> str:
         with path.open(encoding="utf-8", newline="") as fh:
             rows = max(0, sum(1 for _ in csv.reader(fh)) - 1)  # minus header
         return f"{rows:,} rows"
-    if path.suffix == ".gdf":
+    if path.suffix == ".gexf":
         nodes = edges = 0
-        section = ""
-        with path.open(encoding="utf-8") as fh:
-            for line in fh:
-                if line.startswith("nodedef>"):
-                    section = "nodes"
-                elif line.startswith("edgedef>"):
-                    section = "edges"
-                elif line.strip():
-                    if section == "nodes":
-                        nodes += 1
-                    else:
-                        edges += 1
+        for _, element in ElementTree.iterparse(path):
+            tag = element.tag.rsplit("}", 1)[-1]
+            if tag == "node":
+                nodes += 1
+            elif tag == "edge":
+                edges += 1
+            element.clear()
         return f"{nodes:,} nodes, {edges:,} edges"
     return f"{path.stat().st_size:,} bytes"
 
@@ -110,8 +106,8 @@ def _channel_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list
         raise ValueError("Provide a search query or seed channel ids.")
     graph = modules.crawl_channel_network(client, unique(seeds), depth=int(p.get("depth", 1)))
     desc = "_".join(parts)
-    path = outdir / f"channelnet_{desc}_nodes{len(graph.nodes)}_{_stamp()}.gdf"
-    graph.write_gdf(path)
+    path = outdir / f"channelnet_{desc}_nodes{len(graph.nodes)}_{_stamp()}.gexf"
+    graph.write_gexf(path)
     return [path], f"{len(graph.nodes)} channels, {len(graph.edges)} links"
 
 
@@ -169,13 +165,13 @@ def _video_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path
     if p.get("cotag"):
         desc = "_".join(parts)
         tag_graph = modules.cotag_network(videos)
-        files.append(outdir / f"videolist_tagnet_{desc}_nodes{len(tag_graph.nodes)}_{stamp}.gdf")
-        tag_graph.write_gdf(files[-1])
+        files.append(outdir / f"videolist_tagnet_{desc}_nodes{len(tag_graph.nodes)}_{stamp}.gexf")
+        tag_graph.write_gexf(files[-1])
         video_graph = modules.shared_tag_network(videos, channel_details=details)
         files.append(
-            outdir / f"videolist_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gdf"
+            outdir / f"videolist_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gexf"
         )
-        video_graph.write_gdf(files[-1])
+        video_graph.write_gexf(files[-1])
     return files, f"{len(videos)} videos"
 
 
@@ -219,13 +215,13 @@ def _trending(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path],
     write_table(rows, files[0], position=False)
     if p.get("cotag"):
         tag_graph = modules.cotag_network(videos)
-        files.append(outdir / f"trending_tagnet_{desc}_nodes{len(tag_graph.nodes)}_{stamp}.gdf")
-        tag_graph.write_gdf(files[-1])
+        files.append(outdir / f"trending_tagnet_{desc}_nodes{len(tag_graph.nodes)}_{stamp}.gexf")
+        tag_graph.write_gexf(files[-1])
         video_graph = modules.shared_tag_network(videos, channel_details=details)
         files.append(
-            outdir / f"trending_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gdf"
+            outdir / f"trending_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gexf"
         )
-        video_graph.write_gdf(files[-1])
+        video_graph.write_gexf(files[-1])
     return files, f"{len(rows)} chart entries, {len(videos)} distinct videos"
 
 
@@ -240,16 +236,16 @@ def _video_comments(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[
             comments = modules.pseudonymize(comments)
         desc = ids[0]
     else:  # bulk downloads are always pseudonymized
-        comments = modules.fetch_comments_bulk(client, ids, limit=limit, max_videos=None)
+        comments = modules.fetch_comments_bulk(client, ids, limit=limit)
         desc = f"bulk_seeds{len(ids)}"
     graph = modules.interaction_network(comments)
     stamp = _stamp()
     files = [
         outdir / f"videocomments_{desc}_comments_{stamp}.csv",
-        outdir / f"videocomments_{desc}_usernetwork_nodes{len(graph.nodes)}_{stamp}.gdf",
+        outdir / f"videocomments_{desc}_usernetwork_nodes{len(graph.nodes)}_{stamp}.gexf",
     ]
     write_table(comments, files[0], position=False)
-    graph.write_gdf(files[1])
+    graph.write_gexf(files[1])
     return files, f"{len(comments)} comments, {len(graph.nodes)} users"
 
 
@@ -268,11 +264,11 @@ def _cocomment_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[li
     stamp = _stamp()
     desc = "_".join(parts)
     files = [
-        outdir / f"cocomment_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gdf",
-        outdir / f"cocomment_channels_{desc}_nodes{len(channel_graph.nodes)}_{stamp}.gdf",
+        outdir / f"cocomment_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gexf",
+        outdir / f"cocomment_channels_{desc}_nodes{len(channel_graph.nodes)}_{stamp}.gexf",
     ]
-    video_graph.write_gdf(files[0])
-    channel_graph.write_gdf(files[1])
+    video_graph.write_gexf(files[0])
+    channel_graph.write_gexf(files[1])
     return files, f"{len(video_graph.nodes)} videos, {len(channel_graph.nodes)} channels"
 
 

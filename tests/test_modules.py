@@ -315,7 +315,7 @@ def test_channel_details_prefixed_columns(make_client):
     ]
     details = channel_details(make_client(handler), videos)
     assert details["UC1"]["channel_country"] == "NL"
-    assert details["UC1"]["channel_viewCount"] == 5000  # numeric for GDF typing
+    assert details["UC1"]["channel_viewCount"] == 5000  # numeric for GEXF typing
     assert details["UC1"]["channel_publishedAt"] == "2020-01-01T00:00:00Z"
     assert isinstance(details["UC1"]["channel_daysActive"], int)
     # deleted channel still yields uniform (empty) columns

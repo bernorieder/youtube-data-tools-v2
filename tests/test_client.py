@@ -101,3 +101,21 @@ def test_map_propagates_exceptions(make_client):
 
     with pytest.raises(ValueError):
         client.map(boom, [1, 2, 3])
+
+
+def test_connection_errors_never_leak_the_api_key(make_client, monkeypatch):
+    import requests
+
+    monkeypatch.setattr("ytdt.client.time.sleep", lambda s: None)
+    client = make_client(lambda endpoint, params: {})
+
+    def raise_with_url(endpoint, params):
+        raise requests.ConnectionError(
+            "Max retries exceeded with url: /youtube/v3/videos?part=snippet&key=test-key"
+        )
+
+    client._http_get = raise_with_url
+    with pytest.raises(APIError) as excinfo:
+        client.get("videos", id="x")
+    assert "test-key" not in str(excinfo.value)
+    assert "key=REDACTED" in str(excinfo.value)

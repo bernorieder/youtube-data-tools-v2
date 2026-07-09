@@ -146,7 +146,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--cotag",
         action="store_true",
-        help="also write tag networks (.gdf): co-occurring tags, and videos linked by shared tags",
+        help="also write tag networks (.gexf): co-occurring tags, and videos linked by shared tags",
     )
     p.add_argument(
         "--channeldetails",
@@ -173,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--cotag",
         action="store_true",
-        help="also write tag networks (.gdf): co-occurring tags, and videos linked by shared tags",
+        help="also write tag networks (.gexf): co-occurring tags, and videos linked by shared tags",
     )
     p.add_argument(
         "--channeldetails",
@@ -260,8 +260,8 @@ def run(args: argparse.Namespace) -> None:
             raise SystemExit("Provide --query, --ids, or --ids-file.")
         graph = modules.crawl_channel_network(client, unique(seeds), depth=args.depth)
         desc = "_".join(source_parts)
-        path = _outfile(args, f"channelnet_{desc}_nodes{len(graph.nodes)}_{stamp}.gdf")
-        _report(graph.write_gdf(path))
+        path = _outfile(args, f"channelnet_{desc}_nodes{len(graph.nodes)}_{stamp}.gexf")
+        _report(graph.write_gexf(path))
 
     elif args.command == "video-list":
         ids = _parse_ids(args)
@@ -324,12 +324,12 @@ def run(args: argparse.Namespace) -> None:
         if args.cotag:
             desc = "_".join(source_parts)
             tag_graph = modules.cotag_network(videos)
-            _report(tag_graph.write_gdf(_outfile(
-                args, f"videolist_tagnet_{desc}_nodes{len(tag_graph.nodes)}_{stamp}.gdf"
+            _report(tag_graph.write_gexf(_outfile(
+                args, f"videolist_tagnet_{desc}_nodes{len(tag_graph.nodes)}_{stamp}.gexf"
             )))
             video_graph = modules.shared_tag_network(videos, channel_details=details)
-            _report(video_graph.write_gdf(_outfile(
-                args, f"videolist_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gdf"
+            _report(video_graph.write_gexf(_outfile(
+                args, f"videolist_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gexf"
             )))
 
     elif args.command == "trending-videos":
@@ -383,12 +383,12 @@ def run(args: argparse.Namespace) -> None:
             _report(write_table(rows, path, position=False))
             if args.cotag:
                 tag_graph = modules.cotag_network(videos)
-                _report(tag_graph.write_gdf(_outfile(
-                    args, f"trending_tagnet_{desc}_nodes{len(tag_graph.nodes)}_{stamp}.gdf"
+                _report(tag_graph.write_gexf(_outfile(
+                    args, f"trending_tagnet_{desc}_nodes{len(tag_graph.nodes)}_{stamp}.gexf"
                 )))
                 video_graph = modules.shared_tag_network(videos, channel_details=details)
-                _report(video_graph.write_gdf(_outfile(
-                    args, f"trending_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gdf"
+                _report(video_graph.write_gexf(_outfile(
+                    args, f"trending_sharedtagnet_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gexf"
                 )))
 
     elif args.command == "video-comments":
@@ -414,8 +414,8 @@ def run(args: argparse.Namespace) -> None:
         _report(write_table(
             comments, _outfile(args, f"videocomments_{desc}_comments_{stamp}.csv"), position=False
         ))
-        _report(graph.write_gdf(_outfile(
-            args, f"videocomments_{desc}_usernetwork_nodes{len(graph.nodes)}_{stamp}.gdf"
+        _report(graph.write_gexf(_outfile(
+            args, f"videocomments_{desc}_usernetwork_nodes{len(graph.nodes)}_{stamp}.gexf"
         )))
 
     elif args.command == "cocomment-network":
@@ -431,11 +431,11 @@ def run(args: argparse.Namespace) -> None:
             client, unique(ids), max_comments=args.max_comments
         )
         desc = "_".join(source_parts)
-        _report(video_graph.write_gdf(_outfile(
-            args, f"cocomment_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gdf"
+        _report(video_graph.write_gexf(_outfile(
+            args, f"cocomment_{desc}_nodes{len(video_graph.nodes)}_{stamp}.gexf"
         )))
-        _report(channel_graph.write_gdf(_outfile(
-            args, f"cocomment_channels_{desc}_nodes{len(channel_graph.nodes)}_{stamp}.gdf"
+        _report(channel_graph.write_gexf(_outfile(
+            args, f"cocomment_channels_{desc}_nodes{len(channel_graph.nodes)}_{stamp}.gexf"
         )))
 
     if not args.quiet:

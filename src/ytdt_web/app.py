@@ -10,6 +10,7 @@ buttons for the produced files. All actual work happens in
 from __future__ import annotations
 
 import os
+import secrets
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -33,6 +34,10 @@ for _field in (ui.input, ui.textarea, ui.number, ui.select):
 
 VIDEO_ORDERS = ["relevance", "date", "rating", "title", "viewCount"]
 CHANNEL_ORDERS = VIDEO_ORDERS + ["videoCount"]
+
+# at most this many jobs may run at once per browser session
+MAX_JOBS_PER_SESSION = 5
+_session_jobs: dict[str, list[Job]] = {}
 
 HEAD_HTML = """
 <style>
@@ -167,6 +172,14 @@ def run_panel(module: Module, build_params: Callable[[], dict], *, bind_to=None)
 
     async def start() -> None:
         error.text = ""
+        running = _session_jobs.setdefault(app.storage.browser["id"], [])
+        running[:] = [j for j in running if j.status in ("pending", "running")]
+        if len(running) >= MAX_JOBS_PER_SESSION:
+            error.text = (
+                f"At most {MAX_JOBS_PER_SESSION} jobs can run at the same time — "
+                "please wait for one to finish."
+            )
+            return
         if turnstile.enabled():
             token = await ui.run_javascript(
                 "document.querySelector('[name=cf-turnstile-response]')?.value || ''"
@@ -190,6 +203,7 @@ def run_panel(module: Module, build_params: Callable[[], dict], *, bind_to=None)
             output_dir=FILES_DIR,
         )
         state["job"] = job.start()
+        running.append(job)
 
     def refresh() -> None:
         job: Job | None = state["job"]
@@ -299,7 +313,7 @@ and take a long time to collect — start small.
 
 The module creates one **output**:
 
-- a network file in GDF format containing the crawled channel network; nodes carry the
+- a network file in GEXF format containing the crawled channel network; nodes carry the
   same variables as the Channel List CSV file.
 """
     ).classes("ytdt-info")
@@ -328,8 +342,8 @@ The module creates up to three **outputs**:
 
 - a CSV file where each row is a video, described by variables such as title, duration,
   tags, and view, like, and comment counts;
-- (optional) a network file in GDF format of co-occurring tags;
-- (optional) a network file in GDF format connecting videos that share tags.
+- (optional) a network file in GEXF format of co-occurring tags;
+- (optional) a network file in GEXF format connecting videos that share tags.
 """
     ).classes("ytdt-info")
 
@@ -347,8 +361,8 @@ The module creates up to three **outputs**:
 - a CSV file where each row is a chart entry — region, rank, and the same video variables
   as in the Video List module; when several regions are requested, the same video can
   appear once per region, making the file directly comparable across regions;
-- with the tag networks option, a network file in GDF format of co-occurring tags;
-- with the tag networks option, a network file in GDF format connecting videos that share
+- with the tag networks option, a network file in GEXF format of co-occurring tags;
+- with the tag networks option, a network file in GEXF format connecting videos that share
   tags.
 """
     ).classes("ytdt-info")
@@ -368,12 +382,13 @@ in the `isChannelOwner` column;
 
 **Warning**: With more than one video id, the comments of all videos are combined into a
 single CSV file (the `videoId` column identifies each comment's video) and a single user network.
-In this bulk mode, author names and channel ids are always pseudonymized.
+In this bulk mode, author names and channel ids are always pseudonymized, and a single run
+is limited to 100 video ids.
 
 The module creates two **outputs**:
 
 - a CSV file containing all retrievable comments, both top-level comments and replies;
-- a network file in GDF format mapping the interactions between users in the comment
+- a network file in GEXF format mapping the interactions between users in the comment
   section.
 """
     ).classes("ytdt-info")
@@ -397,8 +412,8 @@ and
 
 The module creates two **outputs**:
 
-- a network file in GDF format connecting videos through shared commenters;
-- a network file in GDF format aggregating the same connections at the channel
+- a network file in GEXF format connecting videos through shared commenters;
+- a network file in GEXF format aggregating the same connections at the channel
   level.
 """
     ).classes("ytdt-info")
@@ -664,7 +679,7 @@ If you are interested in the kind of work that can be done with this tool, check
 ##### What kind of files does YTDT generate?
 
 It creates network files in
-[GDF format](https://gephi.org/users/supported-graph-formats/gdf-format/) (a simple text
+[GEXF format](https://gexf.net/) (an XML-based
 format that specifies a graph) and
 [CSV files](https://www.howtogeek.com/348960/what-is-a-csv-file-and-how-do-i-open-it/) for
 tabular data.
@@ -780,6 +795,9 @@ def main() -> None:
         title="YouTube Data Tools",
         host=os.environ.get("YTDT_WEB_HOST", "127.0.0.1"),
         port=int(os.environ.get("YTDT_WEB_PORT", "8080")),
+        # needed for the per-browser-session job cap (app.storage.browser);
+        # set YTDT_WEB_STORAGE_SECRET for stable sessions across restarts
+        storage_secret=os.environ.get("YTDT_WEB_STORAGE_SECRET") or secrets.token_hex(16),
         # YTDT_WEB_RELOAD=1 restarts the server on source changes (dev only)
         reload=os.environ.get("YTDT_WEB_RELOAD", "") == "1",
         show=False,

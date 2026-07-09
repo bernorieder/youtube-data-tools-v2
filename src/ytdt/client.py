@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import os
 import random
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -120,7 +121,10 @@ class YouTubeClient:
                 with self._request_slots:
                     status, payload = self._http_get(endpoint, params)
             except (requests.ConnectionError, requests.Timeout) as exc:
-                last_error = APIError(f"Connection error calling {endpoint}: {exc}")
+                # requests exception texts embed the request URL incl. the
+                # key parameter — never let the key reach user-facing errors
+                detail = re.sub(r"key=[^&\s'\"]+", "key=REDACTED", str(exc))
+                last_error = APIError(f"Connection error calling {endpoint}: {detail}")
                 logger.warning("%s (attempt %d/%d)", last_error, attempt + 1, self.max_retries + 1)
                 continue
 

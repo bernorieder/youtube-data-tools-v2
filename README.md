@@ -27,7 +27,8 @@ purposes.
   (hashed consistently with author names, so mentions stay linkable to the
   hashed `authorName` column). Bulk comment downloads
   (`fetch_comments_bulk`, or `ytdt video-comments` with several ids) are
-  always pseudonymized.
+  always pseudonymized and capped at 100 videos per run
+  (`max_videos` parameter).
 - **Shorts detection**: the video list gains an `isShort` column
   (`yes`/`no`, empty = not determined), resolved **API-only** against each
   channel's unlisted Shorts system playlist (`UUSH` + channel id suffix)
@@ -67,9 +68,11 @@ purposes.
   mention matches a thread participant, the exported text is normalized to
   what the UI shows (space restored, invisible prefix characters removed).
 
-Output stays compatible with the original tool: the same CSV columns
-(row order = search rank, `position` column) and Gephi-compatible `.gdf`
-network files.
+CSV output stays compatible with the original tool: the same columns
+(row order = search rank, `position` column). Network files are written
+in GEXF 1.3 (Gephi's native format) instead of the PHP tool's GDF; the
+`Graph` class keeps a `write_gdf` method for callers that still want
+the old format.
 
 ## Install
 
@@ -102,13 +105,13 @@ from ytdt import fetch_comments, interaction_network, pseudonymize
 
 comments = pseudonymize(fetch_comments(client, "aXnaHh40xnM"))
 write_table(comments, "comments.csv", position=False)
-interaction_network(comments).write_gdf("commentnet.gdf")
+interaction_network(comments).write_gexf("commentnet.gexf")
 
 # Channel Network module
 from ytdt import crawl_channel_network
 
 graph = crawl_channel_network(client, ["UCtxGqPJPPi8ptAzB029jpYA"], depth=1)
-graph.write_gdf("channelnet.gdf")
+graph.write_gexf("channelnet.gexf")
 ```
 
 All module functions take the client as first argument, so a frontend can

@@ -219,8 +219,8 @@ def _finalize(
     return comments
 
 
-# Cap on videos per bulk comment download; placeholder value, to be tuned.
-DEFAULT_MAX_VIDEOS = 50
+# Cap on videos per bulk comment download.
+DEFAULT_MAX_VIDEOS = 100
 
 
 def fetch_comments_bulk(
