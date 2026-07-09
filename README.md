@@ -168,6 +168,14 @@ ytdt-web                       # http://127.0.0.1:8080
 `YTDT_WEB_OUTPUT` the directory for produced files (default
 `ytdt_web_output/`).
 
+For public deployments, optional bot protection via
+[Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/):
+create a widget for your domain in the Cloudflare dashboard and set
+`YTDT_TURNSTILE_SITEKEY` and `YTDT_TURNSTILE_SECRET`. The check runs
+when a job is started (that is where API quota is spent); tokens are
+verified server-side and runs are refused without a valid token. When
+the variables are unset, no widget is shown and nothing is checked.
+
 ## Tests
 
 ```bash

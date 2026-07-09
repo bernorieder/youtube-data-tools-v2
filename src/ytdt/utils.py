@@ -34,11 +34,17 @@ def sha1_hex(value: str) -> str:
 
 
 def rfc3339(value: str | datetime) -> str:
-    """Format a datetime (or pass through a string) as the RFC 3339 UTC form the API expects."""
+    """Format a datetime (or pass through a string) as the RFC 3339 UTC form the API expects.
+
+    A bare date string ("2024-01-01") is expanded to midnight UTC, so
+    users don't have to remember the full timestamp syntax."""
     if isinstance(value, datetime):
         if value.tzinfo is not None:
             value = value.astimezone(timezone.utc)
         return value.strftime("%Y-%m-%dT%H:%M:%SZ")
+    value = value.strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return value + "T00:00:00Z"
     return value
 
 

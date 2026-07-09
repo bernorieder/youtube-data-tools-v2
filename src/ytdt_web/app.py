@@ -15,8 +15,9 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import quote
 
-from nicegui import app, ui
+from nicegui import app, run, ui
 
+from . import turnstile
 from .jobs import MODULES, Job, Module
 
 OUTPUT_ROOT = Path(os.environ.get("YTDT_WEB_OUTPUT", "ytdt_web_output"))
@@ -51,6 +52,23 @@ HEAD_HTML = """
 """
 
 
+# Turnstile widget script plus a small poller that renders the widget into
+# any .ytdt-turnstile placeholder once both the script and the (websocket-
+# rendered) element exist; %s receives the sitekey.
+TURNSTILE_HTML = """
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>
+  setInterval(function () {
+    if (!window.turnstile) return;
+    document.querySelectorAll(".ytdt-turnstile:not([data-rendered])").forEach(function (el) {
+      el.dataset.rendered = "1";
+      window.turnstile.render(el, { sitekey: "%s", theme: "light" });
+    });
+  }, 400);
+</script>
+"""
+
+
 # info-only pages (no form, no job): (nav title, path)
 TEXT_PAGES = [("FAQ", "/faq"), ("Privacy", "/privacy")]
 
@@ -68,6 +86,8 @@ def frame(subtitle: str = "") -> ui.column:
         warning="#a16207",
     )
     ui.add_head_html(HEAD_HTML)
+    if turnstile.enabled():
+        ui.add_head_html(TURNSTILE_HTML % turnstile.site_key())
     with ui.header().classes("bg-white text-black py-4").style("border-bottom: 1px solid #d4d4d4"):
         with ui.row().classes(
             "w-full px-6 gap-x-8 gap-y-1 items-baseline wrap justify-center"
@@ -109,8 +129,12 @@ def search_fields(orders: list[str]) -> Callable[[], dict]:
         language = ui.input("Language", placeholder="e.g. de").classes("w-28")
         region = ui.input("Region code", placeholder="e.g. NL").classes("w-28")
     with ui.row().classes("gap-4"):
-        after = ui.input("Published after", placeholder="2024-01-01T00:00:00Z").classes("w-60")
-        before = ui.input("Published before", placeholder="2024-02-01T00:00:00Z").classes("w-60")
+        after = ui.input("Published after", placeholder="2024-01-01").props(
+            'hint="2024-01-01 or 2024-01-01T00:00:00Z"'
+        ).classes("w-60")
+        before = ui.input("Published before", placeholder="2024-02-01").props(
+            'hint="2024-02-01 or 2024-02-01T00:00:00Z"'
+        ).classes("w-60")
     return lambda: {
         "order": order.value,
         "language": language.value,
@@ -129,6 +153,8 @@ def run_panel(module: Module, build_params: Callable[[], dict], *, bind_to=None)
         return f"{base_url}/files/{quote(path.relative_to(FILES_DIR).as_posix())}"
 
     with ui.column().classes("w-full gap-2 mt-1") as panel:
+        if turnstile.enabled():
+            ui.element("div").classes("ytdt-turnstile")
         run_button = ui.button(f"Run {module.title}", on_click=lambda: start()).classes("mb-3")
         bar = ui.linear_progress(value=0.0, show_value=False).classes("w-full").props("instant-feedback")
         bar.visible = False
@@ -139,11 +165,20 @@ def run_panel(module: Module, build_params: Callable[[], dict], *, bind_to=None)
     if bind_to is not None:
         panel.bind_visibility_from(bind_to, "value", backward=lambda v: v not in (None, ""))
 
-    def start() -> None:
+    async def start() -> None:
+        error.text = ""
+        if turnstile.enabled():
+            token = await ui.run_javascript(
+                "document.querySelector('[name=cf-turnstile-response]')?.value || ''"
+            )
+            ok = await run.io_bound(turnstile.verify, token)
+            ui.run_javascript("window.turnstile && window.turnstile.reset()")  # tokens are single-use
+            if not ok:
+                error.text = "The bot-protection check did not pass — please try again."
+                return
         state["job"] = None
         state["rendered"] = False
         results.clear()
-        error.text = ""
         phase.text = "starting…"
         meta.text = ""
         bar.visible = True

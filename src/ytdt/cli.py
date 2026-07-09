@@ -76,8 +76,10 @@ def _add_search_options(parser: argparse.ArgumentParser, *, orders: list[str]) -
     parser.add_argument("--order", choices=orders, default="relevance")
     parser.add_argument("--language", help="ISO 639-1 relevance language")
     parser.add_argument("--region-code", help="ISO 3166-1 alpha-2 region code")
-    parser.add_argument("--published-after", help="RFC 3339 UTC, e.g. 2024-01-01T00:00:00Z")
-    parser.add_argument("--published-before", help="RFC 3339 UTC")
+    parser.add_argument(
+        "--published-after", help="date (2024-01-01) or RFC 3339 UTC timestamp (2024-01-01T00:00:00Z)"
+    )
+    parser.add_argument("--published-before", help="date or RFC 3339 UTC timestamp")
 
 
 def _add_shorts_options(parser: argparse.ArgumentParser) -> None:

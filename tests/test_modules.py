@@ -548,3 +548,24 @@ def test_resolve_channel_ids_mixed_refs(make_client):
     assert resolve_channel_ids(client, refs) == [cid, "UC_handle_result_0000000"]
     # plain ids and channel URLs resolve without any API call
     assert len(client.requests) == 1
+
+
+def test_rfc3339_expands_bare_dates():
+    from ytdt.utils import rfc3339
+
+    assert rfc3339("2024-01-01") == "2024-01-01T00:00:00Z"
+    assert rfc3339(" 2024-01-01 ") == "2024-01-01T00:00:00Z"
+    assert rfc3339("2024-01-01T12:30:00Z") == "2024-01-01T12:30:00Z"
+
+
+def test_search_accepts_bare_dates(make_client):
+    def handler(endpoint, params):
+        assert endpoint == "search"
+        assert params["publishedAfter"] == "2024-01-01T00:00:00Z"
+        assert params["publishedBefore"] == "2024-02-01T00:00:00Z"
+        return {"items": [{"id": {"videoId": "v1"}}]}
+
+    client = make_client(handler)
+    assert search_videos(
+        client, "query", published_after="2024-01-01", published_before="2024-02-01"
+    ) == ["v1"]
