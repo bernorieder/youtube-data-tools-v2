@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "YouTube Data Tools"
+authors:
+  - family-names: Rieder
+    given-names: Bernhard
+version: 2.0.0a1
+date-released: 2026-07-09
+url: "https://ytdt.digitalmethods.net"
+repository-code: "https://github.com/bernorieder/youtube-data-tools-v2"
+license: GPL-3.0-or-later

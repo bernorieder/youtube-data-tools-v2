@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+ytdt_web_output/
+.DS_Store
+deploy/

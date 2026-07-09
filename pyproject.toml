@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ytdt"
+version = "2.0.0a1"
+description = "YouTube Data Tools: extract channel, video, and comment data from the YouTube API v3 for research"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Bernhard Rieder" }]
+keywords = ["youtube", "api", "research", "digital methods", "networks"]
+dependencies = ["requests>=2.28"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+web = ["nicegui>=2.0"]
+
+[project.scripts]
+ytdt = "ytdt.cli:main"
+ytdt-web = "ytdt_web.app:main"
+
+[project.urls]
+Homepage = "https://ytdt.digitalmethods.net/"
+Repository = "https://github.com/bernorieder/youtube-data-tools-v2"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ytdt = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
