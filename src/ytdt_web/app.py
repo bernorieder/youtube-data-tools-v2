@@ -271,9 +271,8 @@ and the channel's public playlists via the
 
 The module creates two **outputs**:
 
-- the full channel record, as part of the generated report;
-- a CSV file listing the channel's public playlists (playlist id and URL, title, video
-  count), if the channel has any.
+- the full channel record, shown directly in the run report below;
+- a CSV file with one row per public playlist of the channel, only created if the channel has any.
 """
     ).classes("ytdt-info")
 
@@ -625,6 +624,9 @@ def index() -> None:
                     with ui.column().classes("ytdt-card p-4 gap-1 w-full"):
                         ui.label(module.title).classes("text-lg text-black")
                         ui.label(module.description).classes("text-sm ytdt-muted")
+        with ui.row().classes("text-sm ytdt-muted mt-2 gap-1"):
+            ui.label("Looking for the previous version?")
+            ui.link("The old YTDT is still available.", "/old/").classes("ytdt-nav underline")
 
 
 def make_page(module: Module) -> None:
@@ -703,7 +705,7 @@ understanding of YouTube's basic architecture; the
 descriptions of entities and metrics.
 
 We provide limited user support through
-[GitHub](https://github.com/bernorieder/YouTube-Data-Tools/issues). Please do not use
+[GitHub](https://github.com/bernorieder/YouTube-Data-Tools-v2/issues). Please do not use
 social media or email.
 
 ##### What are channel or video ids and how can I find them?
@@ -739,7 +741,7 @@ did and how the problem manifests itself. Without this information it can be ver
 replicate a problem, let alone fix it.
 
 Please submit issues or bug reports via
-[GitHub](https://github.com/bernorieder/YouTube-Data-Tools/issues). Please do not use
+[GitHub](https://github.com/bernorieder/YouTube-Data-Tools-v2/issues). Please do not use
 social media or email.
 
 ##### I want to make crawls with higher crawl depth!
@@ -752,13 +754,13 @@ of RAM, but networks with more than 100,000 nodes should be easily doable with 4
 ##### Can you add feature X to YTDT?
 
 We cannot make any guarantees, but if you post a feature request on
-[GitHub](https://github.com/bernorieder/YouTube-Data-Tools), we will definitely consider
+[GitHub](https://github.com/bernorieder/YouTube-Data-Tools-v2/), we will definitely consider
 it. Please do not use social media or email.
 
 ##### Where is the source code?
 
 The full source code is available on
-[GitHub](https://github.com/bernorieder/YouTube-Data-Tools). You'll also find installation
+[GitHub](https://github.com/bernorieder/YouTube-Data-Tools-v2). You'll also find installation
 instructions there.
 """
     ).classes("ytdt-info")

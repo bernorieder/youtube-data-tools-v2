@@ -306,13 +306,13 @@ MODULES = [
     Module(
         "channel-info",
         "Channel Info",
-        "The full API record for a single channel, from a channel id, URL, or @handle.",
+        "The full API record and public playlists for a single channel.",
         _channel_info,
     ),
     Module(
         "channel-list",
         "Channel List",
-        "Channel information and statistics from a search or a list of channel ids.",
+        "Channel information and statistics from a search or a list of channels.",
         _channel_list,
     ),
     Module(
@@ -324,7 +324,7 @@ MODULES = [
     Module(
         "video-list",
         "Video List",
-        "Video metadata and statistics from a channel, playlist, search, or list of video ids.",
+        "Video metadata and statistics from a channel, playlist, search, or list of videos.",
         _video_list,
     ),
     Module(
