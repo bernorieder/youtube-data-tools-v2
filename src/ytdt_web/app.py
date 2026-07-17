@@ -74,9 +74,10 @@ TURNSTILE_HTML = """
 """
 
 
-# favicon: YT over DT in the interface's dark grey
+# favicon: YT over DT in the interface's dark grey on a white rounded tile
 FAVICON_SVG = """
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#ffffff"/>
   <text x="16" y="13" text-anchor="middle" dominant-baseline="middle"
         font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="bold"
         fill="#525252">YT</text>
