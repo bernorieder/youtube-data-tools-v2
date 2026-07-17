@@ -28,6 +28,7 @@ from pathlib import Path
 from . import __version__, modules
 from .cache import FactCache
 from .client import YouTubeClient
+from .models import Channel, Video
 from .resolve import resolve_channel_ids
 from .errors import YTDTError
 from .tabular import write_table
@@ -77,9 +78,9 @@ def _add_search_options(parser: argparse.ArgumentParser, *, orders: list[str]) -
     parser.add_argument("--language", help="ISO 639-1 relevance language")
     parser.add_argument("--region-code", help="ISO 3166-1 alpha-2 region code")
     parser.add_argument(
-        "--published-after", help="date (2024-01-01) or RFC 3339 UTC timestamp (2024-01-01T00:00:00Z)"
+        "--published-after", help="YYYY-MM-DD or RFC 3339 UTC timestamp (YYYY-MM-DDThh:mm:ssZ)"
     )
-    parser.add_argument("--published-before", help="date or RFC 3339 UTC timestamp")
+    parser.add_argument("--published-before", help="YYYY-MM-DD or RFC 3339 UTC timestamp")
 
 
 def _add_shorts_options(parser: argparse.ArgumentParser) -> None:
@@ -244,17 +245,22 @@ def run(args: argparse.Namespace) -> None:
             _report(write_table(playlists, path, position=False))
 
     elif args.command == "channel-list":
-        ids = resolve_channel_ids(client, _parse_ids(args))
+        missing: list[str] = []
+        ids = resolve_channel_ids(client, _parse_ids(args), missing=missing)
         if args.query:
             ids += modules.search_channels(client, args.query, **_search_kwargs(args))
-        if not ids:
+        if not ids and not missing:
             raise SystemExit("Provide --query, --ids, or --ids-file.")
         channels = modules.fetch_channels(client, unique(ids))
+        found = {channel.channel_id for channel in channels}
+        missing += [cid for cid in unique(ids) if cid not in found]
+        rows = channels + [Channel.missing(ref) for ref in missing]
         path = _outfile(args, f"channellist{len(channels)}_{stamp}.csv")
-        _report(write_table(channels, path))
+        _report(write_table(rows, path))
 
     elif args.command == "channel-network":
-        seeds = resolve_channel_ids(client, _parse_ids(args))
+        # unresolvable seeds are skipped: the network output has no place for markers
+        seeds = resolve_channel_ids(client, _parse_ids(args), missing=[])
         source_parts = [f"seeds{len(seeds)}"] if seeds else []
         if args.query:
             found = modules.search_channels(client, args.query, **_search_kwargs(args))
@@ -272,9 +278,12 @@ def run(args: argparse.Namespace) -> None:
         source = "seeds" if ids else ""
         source_parts = [f"seeds{len(ids)}"] if ids else []
         known_shorts: set[str] = set()
+        missing_channels: list[str] = []
         if args.channel:
             channels = resolve_channel_ids(
-                client, [c.strip() for c in args.channel.split(",") if c.strip()]
+                client,
+                [c.strip() for c in args.channel.split(",") if c.strip()],
+                missing=missing_channels,
             )
             if args.shorts_only:
                 # read the Shorts playlists directly instead of fetching
@@ -306,7 +315,7 @@ def run(args: argparse.Namespace) -> None:
             ids += found
             source = source or "search"
             source_parts.append(f"search{len(found)}")
-        if not ids:
+        if not ids and not missing_channels:
             raise SystemExit("Provide --channel, --playlist, --query, --ids, or --ids-file.")
         videos = modules.fetch_videos(client, unique(ids))
         want = _shorts_mode(args)
@@ -323,6 +332,10 @@ def run(args: argparse.Namespace) -> None:
         rows: list = videos
         if details is not None:
             rows = [{**v.to_row(), **details.get(v.channel_id, {})} for v in videos]
+        # marker rows for unresolvable channel refs (CSV only, never the networks)
+        rows = list(rows) + [
+            Video(title=f"[channel not found: {ref}]") for ref in missing_channels
+        ]
         path = _outfile(args, f"videolist_{source}{len(videos)}_{stamp}.csv")
         _report(write_table(rows, path))
         if args.cotag:

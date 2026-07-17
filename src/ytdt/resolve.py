@@ -11,7 +11,7 @@ import re
 from urllib.parse import unquote, urlparse
 
 from .client import YouTubeClient
-from .errors import NotFoundError
+from .errors import NotFoundError, SkippableError
 from .utils import unique
 
 CHANNEL_ID_RE = re.compile(r"^UC[0-9A-Za-z_-]{22}$")
@@ -57,15 +57,27 @@ def resolve_channel_id(client: YouTubeClient, ref: str) -> str:
     return _channel_id_by(client, forHandle=f"@{ref}")
 
 
-def resolve_channel_ids(client: YouTubeClient, refs: list[str]) -> list[str]:
+def resolve_channel_ids(
+    client: YouTubeClient, refs: list[str], *, missing: list[str] | None = None
+) -> list[str]:
     """Resolve a mixed list of channel references (ids, URLs, @handles) to
     UC… ids, in parallel, preserving order and dropping duplicates.
 
     Plain ids pass through without any API call. An unresolvable
-    reference raises :class:`~ytdt.errors.NotFoundError` naming it.
+    reference raises :class:`~ytdt.errors.NotFoundError` naming it —
+    unless ``missing`` is a list, in which case the failing refs are
+    collected there and the remaining ones resolve normally.
     """
     refs = unique(ref.strip() for ref in refs if ref.strip())
-    ids = client.map(
-        lambda ref: resolve_channel_id(client, ref), refs, desc="resolving channels"
-    )
-    return unique(ids)
+
+    def resolve(ref: str) -> str | None:
+        try:
+            return resolve_channel_id(client, ref)
+        except SkippableError:
+            if missing is None:
+                raise
+            missing.append(ref)
+            return None
+
+    ids = client.map(resolve, refs, desc="resolving channels")
+    return unique(cid for cid in ids if cid)

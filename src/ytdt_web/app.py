@@ -74,6 +74,19 @@ TURNSTILE_HTML = """
 """
 
 
+# favicon: YT over DT in the interface's dark grey
+FAVICON_SVG = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <text x="16" y="13" text-anchor="middle" dominant-baseline="middle"
+        font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="bold"
+        fill="#525252">YT</text>
+  <text x="16" y="27" text-anchor="middle" dominant-baseline="middle"
+        font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="bold"
+        fill="#525252">DT</text>
+</svg>
+"""
+
+
 # info-only pages (no form, no job): (nav title, path)
 TEXT_PAGES = [("FAQ", "/faq"), ("Privacy", "/privacy")]
 
@@ -134,11 +147,11 @@ def search_fields(orders: list[str]) -> Callable[[], dict]:
         language = ui.input("Language", placeholder="e.g. de").classes("w-28")
         region = ui.input("Region code", placeholder="e.g. NL").classes("w-28")
     with ui.row().classes("gap-4"):
-        after = ui.input("Published after", placeholder="2024-01-01").props(
-            'hint="2024-01-01 or 2024-01-01T00:00:00Z"'
+        after = ui.input("Published after", placeholder="YYYY-MM-DD").props(
+            'hint="YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ"'
         ).classes("w-60")
-        before = ui.input("Published before", placeholder="2024-02-01").props(
-            'hint="2024-02-01 or 2024-02-01T00:00:00Z"'
+        before = ui.input("Published before", placeholder="YYYY-MM-DD").props(
+            'hint="YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ"'
         ).classes("w-60")
     return lambda: {
         "order": order.value,
@@ -281,7 +294,7 @@ def info_channel_list() -> None:
     ui.markdown(
         """
 Creates a list of channel information and statistics from one of two sources: a search
-query or a list of channel ids, channel URLs, or @handles.
+query (up to 500 results) or a list of channel ids, channel URLs, or @handles.
 
 For additional information, check the documentation for the
 [channels/list](https://developers.google.com/youtube/v3/docs/channels/list) (channel
@@ -301,8 +314,8 @@ def info_channel_network() -> None:
     ui.markdown(
         """
 Crawls a network of channels connected through featured channels and public subscriptions,
-starting from a set of seed channels. Seeds come from a search query or a list of channel
-ids, channel URLs, or @handles. Featured channels are retrieved via
+starting from a set of seed channels. Seeds come from a search query (up to 500 results)
+or a list of channel ids, channel URLs, or @handles. Featured channels are retrieved via
 [channelSections/list](https://developers.google.com/youtube/v3/docs/channelSections/list)
 and subscriptions via
 [subscriptions/list](https://developers.google.com/youtube/v3/docs/subscriptions/list);
@@ -326,7 +339,7 @@ def info_video_list() -> None:
     ui.markdown(
         """
 Creates a list of video metadata and statistics from one of four sources: one or more
-channels, a playlist, a search query, or a list of video ids.
+channels, a playlist, a search query (up to 500 results), or a list of video ids.
 
 For additional information, check the documentation for the
 [search/list](https://developers.google.com/youtube/v3/docs/search/list) (video search)
@@ -404,7 +417,7 @@ Creates a network of videos based on co-commenting: when a user comments on two 
 link is made between them, and the more users comment on both, the stronger the link. A
 configurable number of top-level comments per video is taken into account, ranked by
 relevance; the channel owner is not counted. The videos are selected through a search
-query or a list of video ids.
+query (up to 500 results) or a list of video ids.
 
 For additional information, check the documentation for the
 [videos/list](https://developers.google.com/youtube/v3/docs/videos/list) (video metadata),
@@ -799,6 +812,7 @@ make_text_page("Privacy Policy", "/privacy", info_privacy)
 def main() -> None:
     ui.run(
         title="YouTube Data Tools",
+        favicon=FAVICON_SVG,
         host=os.environ.get("YTDT_WEB_HOST", "127.0.0.1"),
         port=int(os.environ.get("YTDT_WEB_PORT", "8080")),
         # needed for the per-browser-session job cap (app.storage.browser);

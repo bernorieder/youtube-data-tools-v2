@@ -238,6 +238,12 @@ class Channel:
     made_for_kids: bool | str = ""
 
     @classmethod
+    def missing(cls, ref: str) -> "Channel":
+        """Marker row for a channel reference that could not be resolved."""
+        is_id = bool(re.fullmatch(r"UC[0-9A-Za-z_-]{22}", ref))
+        return cls(channel_id=ref if is_id else "", title=f"[not found: {ref}]")
+
+    @classmethod
     def from_api(cls, item: dict[str, Any]) -> "Channel":
         snippet = item.get("snippet", {})
         stats = item.get("statistics", {})

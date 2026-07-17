@@ -23,7 +23,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from ytdt import Channel, FactCache, YouTubeClient, modules, resolve_channel_ids
+from ytdt import Channel, FactCache, Video, YouTubeClient, modules, resolve_channel_ids
 from ytdt.tabular import write_table
 from ytdt.utils import unique
 
@@ -96,19 +96,28 @@ def _channel_info(client: YouTubeClient, p: dict, outdir: Path) -> tuple:
 
 
 def _channel_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
-    ids = resolve_channel_ids(client, list(p.get("ids") or []))
+    missing: list[str] = []
+    ids = resolve_channel_ids(client, list(p.get("ids") or []), missing=missing)
     if p.get("query"):
         ids += modules.search_channels(client, p["query"], **_search_kwargs(p))
-    if not ids:
+    if not ids and not missing:
         raise ValueError("Provide a search query or channel ids.")
     channels = modules.fetch_channels(client, unique(ids))
+    # ids that resolved but the API returned nothing for are missing too
+    found = {channel.channel_id for channel in channels}
+    missing += [cid for cid in unique(ids) if cid not in found]
+    rows = channels + [Channel.missing(ref) for ref in missing]
     path = outdir / f"channellist{len(channels)}_{_stamp()}.csv"
-    write_table(channels, path)
-    return [path], n_of(len(channels), "channel")
+    write_table(rows, path)
+    summary = n_of(len(channels), "channel")
+    if missing:
+        summary += f", {len(missing)} not found"
+    return [path], summary
 
 
 def _channel_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
-    seeds = resolve_channel_ids(client, list(p.get("ids") or []))
+    # unresolvable seeds are skipped: the network output has no place for markers
+    seeds = resolve_channel_ids(client, list(p.get("ids") or []), missing=[])
     parts = [f"seeds{len(seeds)}"] if seeds else []
     if p.get("query"):
         found = modules.search_channels(client, p["query"], **_search_kwargs(p))
@@ -128,8 +137,9 @@ def _video_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path
     source = "seeds" if ids else ""
     parts = [f"seeds{len(ids)}"] if ids else []
     known_shorts: set[str] = set()
+    missing_channels: list[str] = []
     if p.get("channels"):
-        channels = resolve_channel_ids(client, list(p["channels"]))
+        channels = resolve_channel_ids(client, list(p["channels"]), missing=missing_channels)
         if p.get("shorts") == "only":
             id_lists = client.map(
                 lambda c: modules.channel_shorts_ids(client, c), channels, desc="channel shorts"
@@ -158,7 +168,7 @@ def _video_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path
         ids += found
         source = source or "search"
         parts.append(f"search{len(found)}")
-    if not ids:
+    if not ids and not missing_channels:
         raise ValueError("Provide a source: search, channel, playlist, or video ids.")
 
     videos = modules.fetch_videos(client, unique(ids))
@@ -173,6 +183,10 @@ def _video_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path
 
     stamp = _stamp()
     files = [outdir / f"videolist_{source}{len(videos)}_{stamp}.csv"]
+    # marker rows for unresolvable channel refs (CSV only, never the networks)
+    rows = list(rows) + [
+        Video(title=f"[channel not found: {ref}]") for ref in missing_channels
+    ]
     write_table(rows, files[0])
     if p.get("cotag"):
         desc = "_".join(parts)

@@ -603,3 +603,36 @@ def test_channel_playlists_rows(make_client):
     assert rows[0]["playlistUrl"] == "https://www.youtube.com/playlist?list=PL1"
     assert rows[0]["itemCount"] == 4
     assert rows[0]["description"] == "line1 line2"  # newlines squashed for CSV
+
+
+def test_resolve_channel_ids_collects_missing(make_client):
+    def handler(endpoint, params):
+        assert endpoint == "channels"
+        if params.get("forHandle") == "@Known":
+            return {"items": [{"id": "UC_known_channel_0000000"}]}
+        return {"items": []}  # unknown handles resolve to nothing
+
+    client = make_client(handler)
+    missing: list = []
+    ids = resolve_channel_ids(client, ["@Known", "@Vanished"], missing=missing)
+    assert ids == ["UC_known_channel_0000000"]
+    assert missing == ["@Vanished"]
+
+    # without a missing list the old raising behavior is unchanged
+    import pytest
+    from ytdt.errors import NotFoundError
+
+    with pytest.raises(NotFoundError):
+        resolve_channel_ids(make_client(handler), ["@Vanished"])
+
+
+def test_channel_missing_marker_row():
+    from ytdt.models import Channel
+
+    row = Channel.missing("@Vanished").to_row()
+    assert row["title"] == "[not found: @Vanished]"
+    assert row["id"] == ""
+    assert row["channelUrl"] == ""
+    cid = "UC" + "x" * 22
+    row = Channel.missing(cid).to_row()
+    assert row["id"] == cid
