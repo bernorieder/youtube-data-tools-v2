@@ -20,7 +20,7 @@ from collections import Counter
 from typing import Any
 
 from ..client import YouTubeClient
-from ..errors import NotFoundError, SkippableError
+from ..errors import CommentsDisabledError, NotFoundError, SkippableError
 from ..graph import Graph
 from ..models import Comment, _sql_datetime, _unix
 from ..utils import chunked, sha1_hex, squash_ws, unique
@@ -223,12 +223,22 @@ def _finalize(
 DEFAULT_MAX_VIDEOS = 100
 
 
+def skip_reason(exc: SkippableError) -> str:
+    """Short label for why a video's comments could not be retrieved."""
+    if isinstance(exc, CommentsDisabledError):
+        return "comments disabled"
+    if isinstance(exc, NotFoundError):
+        return "video not found"
+    return "unavailable"
+
+
 def fetch_comments_bulk(
     client: YouTubeClient,
     video_ids: list[str],
     *,
     limit: int | None = None,
     max_videos: int | None = DEFAULT_MAX_VIDEOS,
+    missing: list[tuple[str, str]] | None = None,
 ) -> list[Comment]:
     """Comments for several videos in parallel, as one combined list.
 
@@ -236,8 +246,10 @@ def fetch_comments_bulk(
     data across videos must not carry plain author names. Hashes are
     consistent across videos, so the same user remains one node in the
     combined interaction network. Videos that are missing or have comments
-    disabled are skipped silently. ``limit`` caps top-level comments per
-    video; ``max_videos`` (None = unlimited) rejects oversized requests.
+    disabled are skipped; pass a ``missing`` list to collect
+    ``(video_id, reason)`` pairs for them. ``limit`` caps top-level
+    comments per video; ``max_videos`` (None = unlimited) rejects
+    oversized requests.
     """
     video_ids = unique(video_ids)
     if max_videos is not None and len(video_ids) > max_videos:
@@ -262,7 +274,9 @@ def fetch_comments_bulk(
             return fetch_comments(
                 client, video_id, limit=limit, owner_channel_id=owners.get(video_id, "")
             )
-        except SkippableError:
+        except SkippableError as exc:
+            if missing is not None:
+                missing.append((video_id, skip_reason(exc)))
             return []
 
     comment_lists = client.map(per_video, video_ids, desc="videos")

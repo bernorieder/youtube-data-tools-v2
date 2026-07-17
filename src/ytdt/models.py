@@ -139,6 +139,12 @@ class Video:
     comment_count: int | str = ""
 
     @classmethod
+    def missing(cls, ref: str) -> "Video":
+        """Marker row for a video id that could not be retrieved."""
+        is_id = bool(re.fullmatch(r"[0-9A-Za-z_-]{11}", ref))
+        return cls(video_id=ref if is_id else "", title=f"[not found: {ref}]")
+
+    @classmethod
     def from_api(cls, item: dict[str, Any]) -> "Video":
         snippet = item.get("snippet", {})
         content = item.get("contentDetails", {})
@@ -326,6 +332,11 @@ class Comment:
     thread_id: str = ""
     parent_id: str = ""
     parent_author_name: str = ""
+
+    @classmethod
+    def missing(cls, video_id: str, reason: str = "video not found") -> "Comment":
+        """Marker row for a video whose comments could not be retrieved."""
+        return cls(video_id=video_id, text=f"[{reason}: {video_id}]")
 
     @classmethod
     def from_thread(cls, thread: dict[str, Any]) -> "Comment":

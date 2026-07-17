@@ -9,6 +9,7 @@ from .video_comments import (
     interaction_network,
     resolve_reply_targets,
     pseudonymize,
+    skip_reason,
     video_info,
 )
 from .video_list import (
@@ -44,6 +45,7 @@ __all__ = [
     "resolve_reply_targets",
     "playlist_video_ids",
     "pseudonymize",
+    "skip_reason",
     "search_channels",
     "shared_tag_network",
     "search_videos",

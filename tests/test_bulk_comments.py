@@ -86,3 +86,40 @@ def test_bulk_enforces_max_videos(make_client):
         fetch_comments_bulk(make_client(handler), ids, max_videos=5)
     # duplicates don't count against the cap
     fetch_comments_bulk(make_client(handler), ["v1", "v1", "v2"], max_videos=2)
+
+
+def test_bulk_collects_skipped_videos(make_client):
+    from ytdt.errors import CommentsDisabledError, NotFoundError
+
+    def handler(endpoint, params):
+        if endpoint == "videos":
+            return {"items": [{"id": v, "snippet": {"channelId": "UCx"}}
+                              for v in params["id"].split(",")]}
+        if endpoint == "commentThreads":
+            vid = params["videoId"]
+            if vid == "gone":
+                raise NotFoundError("video gone", reason="videoNotFound")
+            if vid == "quiet":
+                raise CommentsDisabledError("disabled", reason="commentsDisabled")
+            return {"items": []}
+        raise AssertionError(endpoint)
+
+    missing: list = []
+    comments = fetch_comments_bulk(
+        make_client(handler), ["gone", "quiet", "empty"], missing=missing
+    )
+    assert comments == []
+    assert sorted(missing) == [("gone", "video not found"), ("quiet", "comments disabled")]
+
+
+def test_missing_marker_rows():
+    from ytdt.models import Comment, Video
+
+    row = Comment.missing("abc123def45", "comments disabled").to_row()
+    assert row["videoId"] == "abc123def45"
+    assert row["text"] == "[comments disabled: abc123def45]"
+
+    row = Video.missing("abc123def45").to_row()
+    assert row["videoId"] == "abc123def45"
+    assert row["videoTitle"] == "[not found: abc123def45]"
+    assert Video.missing("garbage").to_row()["videoId"] == ""

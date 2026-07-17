@@ -30,7 +30,7 @@ from .cache import FactCache
 from .client import YouTubeClient
 from .models import Channel, Video
 from .resolve import resolve_channel_ids
-from .errors import YTDTError
+from .errors import SkippableError, YTDTError
 from .tabular import write_table
 from .utils import unique
 
@@ -275,6 +275,7 @@ def run(args: argparse.Namespace) -> None:
 
     elif args.command == "video-list":
         ids = _parse_ids(args)
+        seed_ids = list(ids)
         source = "seeds" if ids else ""
         source_parts = [f"seeds{len(ids)}"] if ids else []
         known_shorts: set[str] = set()
@@ -332,10 +333,11 @@ def run(args: argparse.Namespace) -> None:
         rows: list = videos
         if details is not None:
             rows = [{**v.to_row(), **details.get(v.channel_id, {})} for v in videos]
-        # marker rows for unresolvable channel refs (CSV only, never the networks)
-        rows = list(rows) + [
-            Video(title=f"[channel not found: {ref}]") for ref in missing_channels
-        ]
+        # marker rows for unresolvable inputs (CSV only, never the networks)
+        fetched = {video.video_id for video in videos}
+        rows = list(rows)
+        rows += [Video.missing(ref) for ref in seed_ids if ref not in fetched]
+        rows += [Video(title=f"[channel not found: {ref}]") for ref in missing_channels]
         path = _outfile(args, f"videolist_{source}{len(videos)}_{stamp}.csv")
         _report(write_table(rows, path))
         if args.cotag:
@@ -418,18 +420,25 @@ def run(args: argparse.Namespace) -> None:
         ids = unique(ids)
         if not ids:
             raise SystemExit("Provide video id(s) or --ids-file.")
+        skipped: list[tuple[str, str]] = []
         if len(ids) == 1:
-            comments = modules.fetch_comments(client, ids[0], limit=args.limit)
+            try:
+                comments = modules.fetch_comments(client, ids[0], limit=args.limit)
+            except SkippableError as exc:
+                comments = []
+                skipped.append((ids[0], modules.skip_reason(exc)))
             if args.pseudonymize:
                 comments = modules.pseudonymize(comments)
             desc = ids[0]
         else:
             # bulk downloads are always pseudonymized
-            comments = modules.fetch_comments_bulk(client, ids, limit=args.limit)
+            comments = modules.fetch_comments_bulk(client, ids, limit=args.limit, missing=skipped)
             desc = f"bulk_seeds{len(ids)}"
         graph = modules.interaction_network(comments)
+        # marker rows for skipped videos (CSV only, never the network)
+        rows = comments + [Comment.missing(vid, reason) for vid, reason in skipped]
         _report(write_table(
-            comments, _outfile(args, f"videocomments_{desc}_comments_{stamp}.csv"), position=False
+            rows, _outfile(args, f"videocomments_{desc}_comments_{stamp}.csv"), position=False
         ))
         _report(graph.write_gexf(_outfile(
             args, f"videocomments_{desc}_usernetwork_nodes{len(graph.nodes)}_{stamp}.gexf"

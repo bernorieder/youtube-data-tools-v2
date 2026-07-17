@@ -23,7 +23,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from ytdt import Channel, FactCache, Video, YouTubeClient, modules, resolve_channel_ids
+from ytdt import Channel, Comment, FactCache, Video, YouTubeClient, modules, resolve_channel_ids
+from ytdt.errors import SkippableError
 from ytdt.tabular import write_table
 from ytdt.utils import unique
 
@@ -134,6 +135,7 @@ def _channel_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list
 
 def _video_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
     ids = list(p.get("ids") or [])
+    seed_ids = list(ids)
     source = "seeds" if ids else ""
     parts = [f"seeds{len(ids)}"] if ids else []
     known_shorts: set[str] = set()
@@ -183,10 +185,11 @@ def _video_list(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path
 
     stamp = _stamp()
     files = [outdir / f"videolist_{source}{len(videos)}_{stamp}.csv"]
-    # marker rows for unresolvable channel refs (CSV only, never the networks)
-    rows = list(rows) + [
-        Video(title=f"[channel not found: {ref}]") for ref in missing_channels
-    ]
+    # marker rows for unresolvable inputs (CSV only, never the networks)
+    fetched = {video.video_id for video in videos}
+    rows = list(rows)
+    rows += [Video.missing(ref) for ref in seed_ids if ref not in fetched]
+    rows += [Video(title=f"[channel not found: {ref}]") for ref in missing_channels]
     write_table(rows, files[0])
     if p.get("cotag"):
         desc = "_".join(parts)
@@ -256,13 +259,18 @@ def _video_comments(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[
     if not ids:
         raise ValueError("Provide one or more video ids.")
     limit = int(p["limit"]) if p.get("limit") else None
+    skipped: list[tuple[str, str]] = []
     if len(ids) == 1:
-        comments = modules.fetch_comments(client, ids[0], limit=limit)
+        try:
+            comments = modules.fetch_comments(client, ids[0], limit=limit)
+        except SkippableError as exc:
+            comments = []
+            skipped.append((ids[0], modules.skip_reason(exc)))
         if p.get("pseudonymize"):
             comments = modules.pseudonymize(comments)
         desc = ids[0]
     else:  # bulk downloads are always pseudonymized
-        comments = modules.fetch_comments_bulk(client, ids, limit=limit)
+        comments = modules.fetch_comments_bulk(client, ids, limit=limit, missing=skipped)
         desc = f"bulk_seeds{len(ids)}"
     graph = modules.interaction_network(comments)
     stamp = _stamp()
@@ -270,9 +278,14 @@ def _video_comments(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[
         outdir / f"videocomments_{desc}_comments_{stamp}.csv",
         outdir / f"videocomments_{desc}_usernetwork_nodes{len(graph.nodes)}_{stamp}.gexf",
     ]
-    write_table(comments, files[0], position=False)
+    # marker rows for skipped videos (CSV only, never the network)
+    rows = comments + [Comment.missing(vid, reason) for vid, reason in skipped]
+    write_table(rows, files[0], position=False)
     graph.write_gexf(files[1])
-    return files, f"{n_of(len(comments), 'comment')}, {n_of(len(graph.nodes), 'user')}"
+    summary = f"{n_of(len(comments), 'comment')}, {n_of(len(graph.nodes), 'user')}"
+    if skipped:
+        summary += f", {n_of(len(skipped), 'video')} skipped"
+    return files, summary
 
 
 def _cocomment_network(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path], str]:
