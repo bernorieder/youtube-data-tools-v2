@@ -78,10 +78,10 @@ TURNSTILE_HTML = """
 FAVICON_SVG = """
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="6" fill="#ffffff"/>
-  <text x="16" y="9" text-anchor="middle" dominant-baseline="middle"
+  <text x="16" y="14.5" text-anchor="middle"
         font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="bold"
         fill="#525252">YT</text>
-  <text x="16" y="23" text-anchor="middle" dominant-baseline="middle"
+  <text x="16" y="28" text-anchor="middle"
         font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="bold"
         fill="#525252">DT</text>
 </svg>
