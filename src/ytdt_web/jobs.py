@@ -58,13 +58,22 @@ def file_stats(path: Path) -> str:
     return n_of(path.stat().st_size, "byte")
 
 
+def _fact_cache() -> FactCache | None:
+    """The Shorts fact cache, or None when its directory is not writable —
+    detection then runs uncached instead of failing the whole job."""
+    try:
+        return FactCache()
+    except OSError:
+        return None
+
+
 def _shorts_options(client: YouTubeClient, p: dict, videos: list) -> list:
     """Apply the shorts detection/filter params shared by video-list and
     trending: ``shorts`` is one of "" (off), "detect", "only", "longform"."""
     mode = p.get("shorts", "")
     if not mode:
         return videos
-    modules.detect_shorts(client, videos, cache=FactCache())
+    modules.detect_shorts(client, videos, cache=_fact_cache())
     if mode == "only":
         return [v for v in videos if v.is_short == "yes"]
     if mode == "longform":
@@ -225,7 +234,7 @@ def _trending(client: YouTubeClient, p: dict, outdir: Path) -> tuple[list[Path],
     ]
     mode = p.get("shorts", "")
     if mode:
-        modules.detect_shorts(client, [v for _, _, v in entries], cache=FactCache())
+        modules.detect_shorts(client, [v for _, _, v in entries], cache=_fact_cache())
     if mode == "only":
         entries = [e for e in entries if e[2].is_short == "yes"]
     elif mode == "longform":
