@@ -70,6 +70,7 @@ class YouTubeClient:
         self.max_retries = max_retries
         self.timeout = timeout
         self.on_progress = on_progress
+        self._owns_session = session is None
         if session is None:
             session = requests.Session()
             adapter = requests.adapters.HTTPAdapter(
@@ -84,6 +85,17 @@ class YouTubeClient:
         self._request_slots = threading.BoundedSemaphore(max_workers)
         self.call_count = 0
         self.quota_used = 0
+
+    def close(self) -> None:
+        """Release pooled HTTP connections (only sessions the client created)."""
+        if self._owns_session:
+            self.session.close()
+
+    def __enter__(self) -> "YouTubeClient":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
 
     # -- transport ---------------------------------------------------------
 

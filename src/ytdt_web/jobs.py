@@ -449,6 +449,12 @@ class Job:
             if self._client is not None:
                 self.calls = self._client.call_count
                 self.quota = self._client.quota_used
+                # jobs stay referenced for their report; the client must not
+                # keep its pooled API connections open that long
+                close = getattr(self._client, "close", None)
+                if close:
+                    close()
+                self._client = None
 
     def report(self, file_url: Callable[[Path], str] | None = None) -> str:
         """Plain-text report of a finished run: module, time, parameters,
