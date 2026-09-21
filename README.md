@@ -62,7 +62,9 @@ purposes.
   direct replies among retrieved comments, and `inferredLevel` the depth in
   the reconstructed tree (0 = top level, 1 = direct reply, 2 = reply to a
   reply, …), following mention chains as deep as they go — note this can
-  exceed the threading depth YouTube's interface records (set
+  exceed the threading depth YouTube's interface records, measured at four
+  levels (depths 0–3) by
+  [Sedlmair (2026)](https://doi.org/10.5281/zenodo.22836737) (set
   `MAX_INFERRED_LEVEL` to saturate levels at a fixed depth instead). The API also often drops the space between
   an inserted mention and the comment text (in every text format); when the
   mention matches a thread participant, the exported text is normalized to

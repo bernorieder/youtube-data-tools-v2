@@ -57,9 +57,10 @@ def video_info(client: YouTubeClient, video_id: str) -> dict[str, Any]:
 _INVISIBLE = "\u200b\u200c\u200d\ufeff\u2060 "
 
 # Cap for inferredLevel; None = unlimited (follow mention chains as deep
-# as they go). YouTube's interface indents four levels visually and has
-# been observed to record threading only to about level 6, so set this to
-# an int to saturate levels at the platform's depth instead.
+# as they go). YouTube's interface serves at most four levels of depth
+# (0-3), measured across 210 extractions by Sedlmair (2026),
+# https://doi.org/10.5281/zenodo.22836737 — set this to an int to
+# saturate levels at the platform's depth instead.
 MAX_INFERRED_LEVEL: int | None = None
 
 # Characters allowed in YouTube handles; used to reject partial matches
